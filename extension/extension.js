@@ -18,18 +18,10 @@ const MAX_STACKTRACES = 10;
 
 class PopupExtension {
     constructor() {
-        if (typeof chrome.extension.connect !== "undefined") {
-            this._bgChannel = chrome.extension.connect({ name: "Cetus Background Page"});
+        this._bgChannel = chrome.runtime.connect({ name: "Cetus Background Page"});
 
-            this._bgChannel.onMessage.addListener(bgMessageListener);
-            this.sendBGMessage("popupConnected");
-        }
-        else {
-            this._bgChannel = browser.runtime.connect({ name: "Cetus Background Page"});
-
-            this._bgChannel.onMessage.addListener(bgMessageListener);
-            this.sendBGMessage("popupConnected");
-        }
+        this._bgChannel.onMessage.addListener(bgMessageListener);
+        this.sendBGMessage("popupConnected");
 
         this._patches = [];
         this._loadPatchesFromStorage();
@@ -335,11 +327,15 @@ const bgMessageListener = function(msgRaw) {
 
             break;
         case "popupRestore":
+            const instanceData = msgBody.instanceData;
+
+            if (typeof instanceData !== "object") {
+                break;
+            }
+
             if (!extension.unlocked) {
                 extension.unlock();
             }
-
-            const instanceData = msgBody.instanceData;
 
             extension.url = instanceData.url;
             extension.symbols = instanceData.symbols;
@@ -353,6 +349,9 @@ const bgMessageListener = function(msgRaw) {
 
             updateInstances(msgBody.instances);
 
+            break;
+        case "searchProgress":
+            updateSearchProgress(msgBody.progress);
             break;
         case "searchResult":
             const resultCount = msgBody.count;

@@ -14,6 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Extension data passed from the isolated-world content script via CustomEvents
+let cetusOptions;
+let cetusPatches;
+let cetusCallbacks;
+
+window.addEventListener("cetusData", function(e) {
+    try {
+        const data = JSON.parse(e.detail);
+        if (data.cetusOptions) {
+            cetusOptions = data.cetusOptions;
+            // Update logLevel if CetusInstanceContainer was already created
+            if (typeof cetusInstances !== "undefined" && cetusInstances !== null) {
+                cetusInstances.logLevel = cetusOptions.logLevel;
+            }
+        }
+        if (data.cetusPatches) cetusPatches = data.cetusPatches;
+        if (data.cetusCallbacks) cetusCallbacks = data.cetusCallbacks;
+    } catch (err) {
+        // ignore malformed events
+    }
+});
+
 const LOG_LEVEL_NONE  = 0;
 const LOG_LEVEL_DEBUG  = 1;
 const LOG_LEVEL_TRACE  = 2;
@@ -22,7 +44,9 @@ const MAX_SEARCH_RESULTS = 1000;
 
 class CetusInstanceContainer {
     constructor() {
-        if (typeof cetusOptions === "object") {
+        this.logLevel = LOG_LEVEL_NONE;
+
+        if (typeof cetusOptions === "object" && cetusOptions !== null) {
             this.logLevel = cetusOptions.logLevel;
         }
 
@@ -222,10 +246,13 @@ class Cetus {
         }
     }
 
-    _compare(comparator, memType, memAligned, lowerBound, upperBound) {
+    async _compare(comparator, memType, memAligned, lowerBound, upperBound) {
         const searchKeys = Object.keys(this._searchSubset);
 
         if (searchKeys.length == 0) {
+            const totalRange = upperBound - lowerBound;
+            let lastProgressTime = Date.now();
+
             if (memAligned) {
                 const memSize = getElementSize(memType);
 
@@ -234,6 +261,14 @@ class Cetus {
 
                     if (comparator(currentValue) == true) {
                         this._searchSubset[i] = currentValue;
+                    }
+
+                    const now = Date.now();
+                    if (now - lastProgressTime >= 500) {
+                        lastProgressTime = now;
+                        const progress = Math.round(((i - lowerBound) / totalRange) * 100);
+                        this.sendExtensionMessage("searchProgress", { progress });
+                        await new Promise(resolve => setTimeout(resolve, 0));
                     }
                 }
             }
@@ -244,10 +279,22 @@ class Cetus {
                     if (comparator(currentValue) == true) {
                         this._searchSubset[i] = currentValue;
                     }
+
+                    const now = Date.now();
+                    if (now - lastProgressTime >= 500) {
+                        lastProgressTime = now;
+                        const progress = Math.round(((i - lowerBound) / totalRange) * 100);
+                        this.sendExtensionMessage("searchProgress", { progress });
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                    }
                 }
             }
         }
         else {
+            const totalKeys = searchKeys.length;
+            let processed = 0;
+            let lastProgressTime = Date.now();
+
             for (let entry in this._searchSubset) {
                 let currentValue;
 
@@ -267,6 +314,15 @@ class Cetus {
                 }
                 else {
                     this._searchSubset[entry] = currentValue;
+                }
+
+                processed++;
+                const now = Date.now();
+                if (now - lastProgressTime >= 500) {
+                    lastProgressTime = now;
+                    const progress = Math.round((processed / totalKeys) * 100);
+                    this.sendExtensionMessage("searchProgress", { progress });
+                    await new Promise(resolve => setTimeout(resolve, 0));
                 }
             }
         }
@@ -288,18 +344,34 @@ class Cetus {
     }
 
     // TODO Should support unaligned searching
-    _diffCompare(comparator, memType, lowerBoundIndex, upperBoundIndex) {
+    async _diffCompare(comparator, memType, lowerBoundIndex, upperBoundIndex) {
         const memory = this.alignedMemory(memType);
 
         if (Object.keys(this._searchSubset).length == 0) {
+            const totalRange = upperBoundIndex - lowerBoundIndex;
+            let lastProgressTime = Date.now();
+
             for (let i = lowerBoundIndex; i < upperBoundIndex; i++) {
                 if (comparator(memory[i], this._savedMemory[i]) == true) {
                     const realAddress = indexToRealAddress(i, memType);
                     this._searchSubset[realAddress] = memory[i];
                 }
+
+                const now = Date.now();
+                if (now - lastProgressTime >= 500) {
+                    lastProgressTime = now;
+                    const progress = Math.round(((i - lowerBoundIndex) / totalRange) * 100);
+                    this.sendExtensionMessage("searchProgress", { progress });
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
             }
         }
         else {
+            const keys = Object.keys(this._searchSubset);
+            const totalKeys = keys.length;
+            let processed = 0;
+            let lastProgressTime = Date.now();
+
             for (let entryAddr in this._searchSubset) {
                 const entryIndex = realAddressToIndex(entryAddr, memType);
                 if (entryIndex < lowerBoundIndex ||
@@ -309,6 +381,15 @@ class Cetus {
                 }
                 else {
                     this._searchSubset[entryAddr] = memory[entryIndex];
+                }
+
+                processed++;
+                const now = Date.now();
+                if (now - lastProgressTime >= 500) {
+                    lastProgressTime = now;
+                    const progress = Math.round((processed / totalKeys) * 100);
+                    this.sendExtensionMessage("searchProgress", { progress });
+                    await new Promise(resolve => setTimeout(resolve, 0));
                 }
             }
         }
@@ -331,7 +412,7 @@ class Cetus {
         return searchObj;
     }
 
-    search(searchComparison, searchMemType, searchMemAlign, searchParam = null, lowerBound = 0, upperBound = 0xFFFFFFFF) {
+    async search(searchComparison, searchMemType, searchMemAlign, searchParam = null, lowerBound = 0, upperBound = 0xFFFFFFFF) {
         this.createSearchMemory(searchMemType, searchMemAlign);
 
         const memSize = this.getMemorySize();
@@ -422,14 +503,14 @@ class Cetus {
                 }
             }
             else {
-                searchResults = this._diffCompare(comparator,
+                searchResults = await this._diffCompare(comparator,
                                                   searchMemType,
                                                   realLowerBoundIndex,
                                                   realUpperBoundIndex);
             }
         }
         else {
-            searchResults = this._compare(comparator,
+            searchResults = await this._compare(comparator,
                                           searchMemType,
                                           searchMemAlign,
                                           lowerBoundAddr,
@@ -916,53 +997,55 @@ window.addEventListener("cetusMsgOut", function(msgRaw) {
 
             break;
         case "search":
-            const searchMemType     = msgBody.memType;
-            const searchMemAlign    = msgBody.memAlign;
-            const searchComparison  = msgBody.compare;
-            const searchLower       = msgBody.lower;
-            const searchUpper       = msgBody.upper;
-            const searchParam       = msgBody.param;
+            (async function() {
+                const searchMemType     = msgBody.memType;
+                const searchMemAlign    = msgBody.memAlign;
+                const searchComparison  = msgBody.compare;
+                const searchLower       = msgBody.lower;
+                const searchUpper       = msgBody.upper;
+                const searchParam       = msgBody.param;
 
-            let searchReturn;
-            let searchResults;
-            let searchResultsCount;
+                let searchReturn;
+                let searchResults;
+                let searchResultsCount;
 
-            if (searchMemType == "ascii" || searchMemType == "utf-8" || searchMemType == "bytes") {
-                searchReturn = cetus.patternSearch(searchMemType, searchParam, searchLower, searchUpper);
-            }
-            else {
-                searchReturn = cetus.search(searchComparison,
-                                            searchMemType,
-                                            searchMemAlign,
-                                            searchParam,
-                                            searchLower,
-                                            searchUpper);
-            }
-
-            searchResultsCount = searchReturn.count;
-            searchResults = searchReturn.results;
-
-            let subset = {};
-
-            // We do not want to send too many results or we risk crashing the extension
-            // If there are more than 100 results, only send 100 but send the real count
-            if (searchResultsCount > 100) {
-                for (let property in searchResults) {
-                    subset[property] = searchResults[property];
-
-                    if (Object.keys(subset).length >= 100) {
-                        break;
-                    }
+                if (searchMemType == "ascii" || searchMemType == "utf-8" || searchMemType == "bytes") {
+                    searchReturn = cetus.patternSearch(searchMemType, searchParam, searchLower, searchUpper);
+                }
+                else {
+                    searchReturn = await cetus.search(searchComparison,
+                                                searchMemType,
+                                                searchMemAlign,
+                                                searchParam,
+                                                searchLower,
+                                                searchUpper);
                 }
 
-                searchResults = subset;
-            }
+                searchResultsCount = searchReturn.count;
+                searchResults = searchReturn.results;
 
-            cetus.sendExtensionMessage("searchResult", {
-                count: searchResultsCount,
-                results: searchResults,
-                memType: searchMemType,
-            });
+                let subset = {};
+
+                // We do not want to send too many results or we risk crashing the extension
+                // If there are more than 100 results, only send 100 but send the real count
+                if (searchResultsCount > 100) {
+                    for (let property in searchResults) {
+                        subset[property] = searchResults[property];
+
+                        if (Object.keys(subset).length >= 100) {
+                            break;
+                        }
+                    }
+
+                    searchResults = subset;
+                }
+
+                cetus.sendExtensionMessage("searchResult", {
+                    count: searchResultsCount,
+                    results: searchResults,
+                    memType: searchMemType,
+                });
+            })();
 
             break;
         // FIXME Upper/lower bounds are not enforced

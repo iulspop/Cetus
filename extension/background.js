@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+importScripts("/shared/utils.js");
+
 const MAX_WATCHPOINTS = 10;
 
 class WASMInstance {
@@ -134,13 +136,13 @@ class WASMInstance {
             body: msgBody
         };
 
-        try {
-            chrome.tabs.sendMessage(this.contentTab.id, msg);
-        }
-        catch (e) {
-            // TODO Handle tab closed
+        if (this.contentTab === null) {
             return;
         }
+
+        chrome.tabs.sendMessage(this.contentTab.id, msg).catch(function() {
+            // Tab closed or content script not ready
+        });
     };
 
     addBookmark(memAddr, memType) {
@@ -306,7 +308,6 @@ class WindowInstance {
 
         // We do not need a separate popupChannel for each instance because they all connect to the same popup window
         this._popupChannel = null;
-        this._popupConnect();
 
         this.searchMemType = null;
 
@@ -315,29 +316,58 @@ class WindowInstance {
         this.pendingFunctionIndex = null;
     }
 
-    _popupConnect() {
-        const targetWindow = this;
-
-        const popupDisconnectListener = function() {
-            targetWindow._popupChannel = null;
+    attachPopupChannel(channel) {
+        if (this._popupChannel !== null) {
+            return;
         }
 
-        // This listener receives messages sent from the popup or devtools UI
-        const popupMessageListener = function(msg, msgSource) {
-            const msgType = msg.type;
-            const msgBody = msg.body;
+        const targetWindow = this;
 
-            if (typeof msgType !== "string") {
-                return true;
-            }
+        this._popupChannel = channel;
+        this._popupChannel.onMessage.addListener(function(msg, msgSource) {
+            return targetWindow._popupMessageListener(msg, msgSource);
+        });
+        this._popupChannel.onDisconnect.addListener(function() {
+            targetWindow._popupChannel = null;
+        });
+    }
 
-            const currentInstance = targetWindow.currentInstance();
+    // This listener receives messages sent from the popup or devtools UI
+    _popupMessageListener(msg, msgSource) {
+        const targetWindow = this;
+        const msgType = msg.type;
+        const msgBody = msg.body;
 
-            switch (msgType) {
-                case "popupConnected":
-                    targetWindow.popupRestore();
+        if (typeof msgType !== "string") {
+            return true;
+        }
+
+        switch (msgType) {
+            case "popupConnected":
+                targetWindow.popupRestore();
 
                     break;
+                case "instanceChange": {
+                    const newInstance = msgBody.id;
+
+                    if (targetWindow.getInstance(newInstance) === null) {
+                        return true;
+                    }
+
+                    targetWindow.instanceId = newInstance;
+                    targetWindow.popupRestore();
+                    break;
+                }
+                default: break;
+        }
+
+        const currentInstance = targetWindow.currentInstance();
+
+        if (currentInstance === null) {
+            return true;
+        }
+
+        switch (msgType) {
                 case "search":
                     const forwardMsg = {};
 
@@ -507,45 +537,9 @@ class WindowInstance {
                     targetWindow.currentInstance().instanceData.memoryViewer.startAddress = msgBody.startAddress;
 
                     break;
-                case "instanceChange":
-                    const newInstance = msgBody.id;
-
-                    if (targetWindow.getInstance(newInstance) === null) {
-                        return true;
-                    }
-
-                    targetWindow.instanceId = newInstance;
-                    targetWindow.popupRestore();
-                    break;
             }
 
             return true;
-        };
-
-        if (typeof chrome.extension.onConnect !== "undefined") {
-            chrome.extension.onConnect.addListener(function(channel) {
-                if (targetWindow._popupChannel !== null) {
-                    return;
-                }
-
-                targetWindow._popupChannel = channel;
-
-                targetWindow._popupChannel.onMessage.addListener(popupMessageListener);
-                targetWindow._popupChannel.onDisconnect.addListener(popupDisconnectListener);
-            });
-        }
-        else {
-            browser.runtime.onConnect.addListener(function(channel) {
-                if (targetWindow._popupChannel !== null) {
-                    return;
-                }
-
-                targetWindow._popupChannel = channel;
-
-                targetWindow._popupChannel.onMessage.addListener(popupMessageListener);
-                targetWindow._popupChannel.onDisconnect.addListener(popupDisconnectListener);
-            });
-        }
     }
 
     popupRestore() {
@@ -678,6 +672,12 @@ class BackgroundExtension {
         const newWindow = new WindowInstance();
         this.windows[windowId] = newWindow;
 
+        // Claim pending popup/devtools channel if one was stored before this window existed
+        if (_pendingPopupChannel !== null) {
+            newWindow.attachPopupChannel(_pendingPopupChannel);
+            _pendingPopupChannel = null;
+        }
+
         return newWindow;
     }
 
@@ -690,7 +690,29 @@ class BackgroundExtension {
     }
 }
 
-bgExtension = new BackgroundExtension();
+const bgExtension = new BackgroundExtension();
+
+// Pending popup/devtools channel stored until a WindowInstance claims it
+let _pendingPopupChannel = null;
+
+chrome.runtime.onConnect.addListener(function(channel) {
+    // Try to attach to an existing WindowInstance
+    for (let key in bgExtension.windows) {
+        const win = bgExtension.windows[key];
+        if (win._popupChannel === null) {
+            win.attachPopupChannel(channel);
+            return;
+        }
+    }
+
+    // No WindowInstance yet — store for later
+    _pendingPopupChannel = channel;
+    channel.onDisconnect.addListener(function() {
+        if (_pendingPopupChannel === channel) {
+            _pendingPopupChannel = null;
+        }
+    });
+});
 
 // This listener receives commands directly from the page
 // As such, all inputs should be treated as untrusted
@@ -783,6 +805,9 @@ chrome.runtime.onMessage.addListener(function(msgRaw, msgSender) {
             targetWindow.currentInstance().instanceData.bookmarks[address].value = value;
             targetWindow.currentInstance().updateBookmarks();
 
+            break;
+        case "searchProgress":
+            targetWindow.passthruPopupMessage(msg);
             break;
         case "searchResult":
             if (!targetWindow.pendingSearch) {

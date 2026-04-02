@@ -637,6 +637,10 @@ const disableSearchFormAlignment = function() {
     }
 };
 
+const updateSearchProgress = function(progress) {
+	document.getElementById('resultsTitle').innerText = 'Searching... ' + progress + '%';
+};
+
 const updateSearchResults = function(resultCount, resultObject, resultMemType) {
 	document.getElementById('resultsTitle').innerText = resultCount + ' results';
 	document.getElementById('restartBtn').disabled = false;
