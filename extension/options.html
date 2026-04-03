@@ -142,12 +142,16 @@
   </div>
 
   <div class="options-section">
-    <div class="modal-title">Passthrough Mode</div>
-    <label class="toggle">
-      <input type="checkbox" id="checkPassthrough">
-      <span class="toggle-switch"></span>
-      <span class="toggle-label">Skip all instrumentation (diagnostic)</span>
-    </label>
+    <div class="modal-title">Diagnostic Level</div>
+    <div class="select-wrap">
+      <select id="selectDiagnosticLevel">
+        <option value="">Normal (full instrumentation)</option>
+        <option value="0">Level 0: Passthrough (no modifications)</option>
+        <option value="1">Level 1: Imports/globals only (no callbacks)</option>
+        <option value="2">Level 2: + Write callbacks only</option>
+        <option value="3">Level 3: + Read callbacks only</option>
+      </select>
+    </div>
   </div>
 
   <div class="save-section">

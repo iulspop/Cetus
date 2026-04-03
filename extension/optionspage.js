@@ -8,8 +8,14 @@ const updateOptions = function(optionValues) {
     const rangeWPCount = document.getElementById("rangeWPCount");
     rangeWPCount.value = optionValues.value;
 
-    const checkPassthrough = document.getElementById("checkPassthrough");
-    checkPassthrough.checked = optionValues.passthroughMode === "true" || optionValues.passthroughMode === true;
+    const selectDiagnosticLevel = document.getElementById("selectDiagnosticLevel");
+    if (optionValues.diagnosticLevel !== undefined && optionValues.diagnosticLevel !== "") {
+        selectDiagnosticLevel.value = optionValues.diagnosticLevel;
+    } else if (optionValues.passthroughMode === "true" || optionValues.passthroughMode === true) {
+        selectDiagnosticLevel.value = "0";
+    } else {
+        selectDiagnosticLevel.value = "";
+    }
 }
 
 document.getElementById("buttonSaveOptions").onclick = function() {
@@ -24,8 +30,16 @@ document.getElementById("buttonSaveOptions").onclick = function() {
     const rangeWPCount = document.getElementById("rangeWPCount");
     newOptions.wpCount = rangeWPCount.value;
 
-    const checkPassthrough = document.getElementById("checkPassthrough");
-    newOptions.passthroughMode = checkPassthrough.checked ? "true" : "false";
+    const selectDiagnosticLevel = document.getElementById("selectDiagnosticLevel");
+    const diagLevel = selectDiagnosticLevel.value;
+    if (diagLevel !== "") {
+        newOptions.diagnosticLevel = diagLevel;
+        // Level 0 also sets passthroughMode for backwards compat
+        newOptions.passthroughMode = diagLevel === "0" ? "true" : "false";
+    } else {
+        newOptions.diagnosticLevel = "";
+        newOptions.passthroughMode = "false";
+    }
 
     saveOptions(newOptions);
 

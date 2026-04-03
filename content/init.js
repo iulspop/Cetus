@@ -54,10 +54,29 @@ const instrumentBinary = function(bufferSource) {
         }
     }
 
+    // Diagnostic levels:
+    // 0: Passthrough (no modifications at all, WAIL parse/write only)
+    // 1: Add imports/globals/functions/exports but NO instruction callbacks
+    // 2: Level 1 + WRITE instruction callbacks only (no read callbacks)
+    // 3: Level 1 + READ instruction callbacks only (no write callbacks)
+    // 4: Full instrumentation (normal operation)
+    let diagnosticLevel = 4; // default: full instrumentation
+
     if (passthroughMode) {
-        colorLog("PASSTHROUGH MODE: Skipping all instrumentation, testing WAIL parse/write only");
+        colorLog("PASSTHROUGH MODE (Level 0): Skipping all instrumentation, testing WAIL parse/write only");
         instrumentLevel = 0;
         wpCount = 0;
+        diagnosticLevel = 0;
+    }
+
+    if (typeof cetusOptions === "object" && cetusOptions.diagnosticLevel !== undefined && cetusOptions.diagnosticLevel !== "") {
+        diagnosticLevel = parseInt(cetusOptions.diagnosticLevel);
+        colorLog("DIAGNOSTIC LEVEL: " + diagnosticLevel);
+        if (diagnosticLevel === 0) {
+            passthroughMode = true;
+            instrumentLevel = 0;
+            wpCount = 0;
+        }
     }
 
     if (wpCount > MAX_WATCHPOINTS || wpCount < 0) {
@@ -882,7 +901,11 @@ const instrumentBinary = function(bufferSource) {
             return instrBytes;
         };
 
-        if (instrumentLevel & ENABLE_WP_READ) {
+        const enableReadCallbacks = (diagnosticLevel >= 4) || (diagnosticLevel === 3);
+        const enableWriteCallbacks = (diagnosticLevel >= 4) || (diagnosticLevel === 2);
+
+        if (enableReadCallbacks && (instrumentLevel & ENABLE_WP_READ)) {
+            colorLog("DIAGNOSTIC: Read instruction callbacks ENABLED");
             wail.addInstructionParser(OP_I32_LOAD,     readWatchpointInstrCallback);
             wail.addInstructionParser(OP_I64_LOAD,     readWatchpointInstrCallback);
             wail.addInstructionParser(OP_F32_LOAD,     readWatchpointInstrCallback);
@@ -897,9 +920,12 @@ const instrumentBinary = function(bufferSource) {
             wail.addInstructionParser(OP_I64_LOAD16_U, readWatchpointInstrCallback);
             wail.addInstructionParser(OP_I64_LOAD32_S, readWatchpointInstrCallback);
             wail.addInstructionParser(OP_I64_LOAD32_U, readWatchpointInstrCallback);
+        } else {
+            colorLog("DIAGNOSTIC: Read instruction callbacks DISABLED");
         }
 
-        if (instrumentLevel & ENABLE_WP_WRITE) {
+        if (enableWriteCallbacks && (instrumentLevel & ENABLE_WP_WRITE)) {
+            colorLog("DIAGNOSTIC: Write instruction callbacks ENABLED");
             wail.addInstructionParser(OP_I32_STORE,   writeWatchpointInstrCallback);
             wail.addInstructionParser(OP_I64_STORE,   writeWatchpointInstrCallback);
             wail.addInstructionParser(OP_F32_STORE,   writeWatchpointInstrCallback);
@@ -909,10 +935,14 @@ const instrumentBinary = function(bufferSource) {
             wail.addInstructionParser(OP_I64_STORE8,  writeWatchpointInstrCallback);
             wail.addInstructionParser(OP_I64_STORE16, writeWatchpointInstrCallback);
             wail.addInstructionParser(OP_I64_STORE32, writeWatchpointInstrCallback);
+        } else {
+            colorLog("DIAGNOSTIC: Write instruction callbacks DISABLED");
         }
 
-        wail.addInstructionParser(OP_SIMD, simdInstrCallback);
-        wail.addInstructionParser(OP_ATOMIC, atomicInstrCallback);
+        if (enableReadCallbacks || enableWriteCallbacks) {
+            wail.addInstructionParser(OP_SIMD, simdInstrCallback);
+            wail.addInstructionParser(OP_ATOMIC, atomicInstrCallback);
+        }
     }
 
     let memoryInstancePath;
