@@ -19,7 +19,7 @@
         {
             "js": [
                 "shared/utils.js",
-                "shared/wail.min.js/wail.min.js",
+                "shared/WAIL/wail.js",
                 "content/thirdparty/stacktrace/stacktrace.min.js",
                 "content/cetus.js",
                 "content/init.js"
