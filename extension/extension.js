@@ -327,25 +327,23 @@ const bgMessageListener = function(msgRaw) {
 
             break;
         case "popupRestore":
-            const instanceData = msgBody.instanceData;
-
-            if (typeof instanceData !== "object") {
-                break;
-            }
-
             if (!extension.unlocked) {
                 extension.unlock();
             }
 
-            extension.url = instanceData.url;
-            extension.symbols = instanceData.symbols;
-            extension.searchMemType = instanceData.searchForm.valueType;
+            const instanceData = msgBody.instanceData;
 
-            updateSearchForm(instanceData.searchForm);
-            updateStringSearchForm(instanceData.stringForm);
-            updateSpeedhackForm(instanceData.speedhack);
-            updateStackTraceTable(instanceData.stackTraces);
-            updateBookmarkTable(instanceData.bookmarks, extension.options.enableWatchpoints);
+            if (typeof instanceData === "object") {
+                extension.url = instanceData.url;
+                extension.symbols = instanceData.symbols;
+                extension.searchMemType = instanceData.searchForm.valueType;
+
+                updateSearchForm(instanceData.searchForm);
+                updateStringSearchForm(instanceData.stringForm);
+                updateSpeedhackForm(instanceData.speedhack);
+                updateStackTraceTable(instanceData.stackTraces);
+                updateBookmarkTable(instanceData.bookmarks, extension.options.enableWatchpoints);
+            }
 
             updateInstances(msgBody.instances);
 

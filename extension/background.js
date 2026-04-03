@@ -531,6 +531,17 @@ class WindowInstance {
                     }
 
                     break;
+                case "shUpdate":
+                    // Live update multiplier while speedhack is active
+                    if (targetWindow.currentInstance().instanceData.speedhack.enabled) {
+                        const shUpdateMultiplier = msgBody.multiplier;
+                        targetWindow.currentInstance().instanceData.speedhack.multiplier = shUpdateMultiplier;
+
+                        currentInstance.sendContentMessage("shEnable", {
+                            multiplier: shUpdateMultiplier
+                        });
+                    }
+                    break;
                 case "memToggle":
                     targetWindow.currentInstance().instanceData.memoryViewer.enabled = msgBody.enabled;
                     targetWindow.currentInstance().instanceData.memoryViewer.startAddress = msgBody.startAddress;
@@ -552,7 +563,9 @@ class WindowInstance {
             popupData.instanceData = currentInstance.instanceData;
         }
 
-        this.sendPopupMessage(this.instanceId, "popupRestore", popupData);
+        // Always send popupRestore, even if no instance exists yet.
+        // This unlocks the popup UI so it's ready when WASM loads.
+        this.broadcastPopupMessage("popupRestore", popupData);
     }
 
     sendPopupMessage(instanceId, type, msgBody) {
@@ -560,27 +573,32 @@ class WindowInstance {
             return;
         }
 
-        if (this._popupChannels.length > 0) {
-            const msg = {
-                type: type,
-                id: instanceId
-            };
+        this.broadcastPopupMessage(type, msgBody, instanceId);
+    }
 
-            if (typeof msgBody !== "undefined") {
-                msg.body = msgBody;
-            }
+    broadcastPopupMessage(type, msgBody, instanceId) {
+        if (this._popupChannels.length === 0) {
+            return;
+        }
 
-            // TODO Actually handle port closed error
-            try {
-                const msgStr = bigintJsonStringify(msg);
+        const msg = {
+            type: type,
+            id: instanceId || null
+        };
 
-                for (const channel of this._popupChannels) {
-                    channel.postMessage(msgStr);
-                }
+        if (typeof msgBody !== "undefined") {
+            msg.body = msgBody;
+        }
+
+        try {
+            const msgStr = bigintJsonStringify(msg);
+
+            for (const channel of this._popupChannels) {
+                channel.postMessage(msgStr);
             }
-            catch (err) {
-                return;
-            }
+        }
+        catch (err) {
+            return;
         }
     }
 
@@ -706,7 +724,18 @@ chrome.runtime.onConnect.addListener(function(channel) {
         return;
     }
 
-    // No WindowInstance yet — store for later
+    // No WindowInstance yet — unlock popup immediately with empty state,
+    // then store channel for later so it receives future messages
+    try {
+        const msg = bigintJsonStringify({
+            type: "popupRestore",
+            id: null,
+            body: { instances: [] }
+        });
+        channel.postMessage(msg);
+    }
+    catch (err) {}
+
     _pendingPopupChannels.push(channel);
     channel.onDisconnect.addListener(function() {
         const idx = _pendingPopupChannels.indexOf(channel);
