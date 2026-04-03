@@ -7,6 +7,9 @@ const updateOptions = function(optionValues) {
 
     const rangeWPCount = document.getElementById("rangeWPCount");
     rangeWPCount.value = optionValues.value;
+
+    const checkPassthrough = document.getElementById("checkPassthrough");
+    checkPassthrough.checked = optionValues.passthroughMode === "true" || optionValues.passthroughMode === true;
 }
 
 document.getElementById("buttonSaveOptions").onclick = function() {
@@ -21,7 +24,20 @@ document.getElementById("buttonSaveOptions").onclick = function() {
     const rangeWPCount = document.getElementById("rangeWPCount");
     newOptions.wpCount = rangeWPCount.value;
 
+    const checkPassthrough = document.getElementById("checkPassthrough");
+    newOptions.passthroughMode = checkPassthrough.checked ? "true" : "false";
+
     saveOptions(newOptions);
+
+    const btn = document.getElementById("buttonSaveOptions");
+    btn.textContent = "Saved!";
+    btn.style.background = "#2ecc71";
+    btn.style.borderColor = "#2ecc71";
+    setTimeout(function() {
+        btn.textContent = "Save";
+        btn.style.background = "";
+        btn.style.borderColor = "";
+    }, 1500);
 }
 
 document.getElementById("rangeWPCount").oninput = function(e) {

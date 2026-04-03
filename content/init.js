@@ -38,6 +38,10 @@ const instrumentBinary = function(bufferSource) {
     let instrumentLevel = ENABLE_WP_ALL;
     let wpCount = 3;
 
+    // Diagnostic passthrough mode: parse and rewrite binary with zero modifications
+    // to test if WAIL's core parser/writer corrupts the binary
+    let passthroughMode = false;
+
     if (typeof cetusOptions === "object") {
         if (typeof cetusOptions.enableWatchpoints === "string") {
             instrumentLevel = parseInt(cetusOptions.enableWatchpoints);
@@ -45,6 +49,15 @@ const instrumentBinary = function(bufferSource) {
         if (typeof cetusOptions.wpCount === "string") {
             wpCount = parseInt(cetusOptions.wpCount);
         }
+        if (cetusOptions.passthroughMode === "true" || cetusOptions.passthroughMode === true) {
+            passthroughMode = true;
+        }
+    }
+
+    if (passthroughMode) {
+        colorLog("PASSTHROUGH MODE: Skipping all instrumentation, testing WAIL parse/write only");
+        instrumentLevel = 0;
+        wpCount = 0;
     }
 
     if (wpCount > MAX_WATCHPOINTS || wpCount < 0) {
@@ -943,7 +956,7 @@ const instrumentBinary = function(bufferSource) {
 
     // cetusPatches will be set early on in page load if there are any configured patches
     // for this binary
-    if (typeof cetusPatches === "object") {
+    if (!passthroughMode && typeof cetusPatches === "object") {
         for (let i = 0; i < cetusPatches.length; i++) {
             const thisPatch = cetusPatches[i];
 
@@ -964,7 +977,7 @@ const instrumentBinary = function(bufferSource) {
         }
     }
 
-    if (typeof cetusCallbacks === "object" && typeof cetusCallbacks.processor === "object") {
+    if (!passthroughMode && typeof cetusCallbacks === "object" && typeof cetusCallbacks.processor === "object") {
         const processorCallbacks = cetusCallbacks.processor;
 
         for (let i = 0; i < processorCallbacks.length; i++) {

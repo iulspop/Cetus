@@ -362,6 +362,59 @@ html {
 	background: #ffffff;
 }
 
+.toggle {
+	display: flex;
+	flex-flow: row nowrap;
+	align-items: center;
+	margin-top: 8px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.toggle input {
+	display: none;
+}
+
+.toggle-switch {
+	width: 36px;
+	height: 20px;
+	background: var(--grayInactive);
+	border: 1px solid var(--inputBorder);
+	border-radius: 10px;
+	position: relative;
+	flex-shrink: 0;
+	transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.toggle-switch::after {
+	content: '';
+	width: 14px;
+	height: 14px;
+	background: var(--textGray);
+	border-radius: 50%;
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.toggle input:checked + .toggle-switch {
+	background: var(--brand);
+	border-color: var(--brand);
+}
+
+.toggle input:checked + .toggle-switch::after {
+	transform: translateX(16px);
+	background: #ffffff;
+}
+
+.toggle-label {
+	margin-left: 8px;
+	font-size: 14px;
+	color: var(--textGray);
+	line-height: 20px;
+}
+
 .button {
 	text-align: center;
 	margin-top: 4px;

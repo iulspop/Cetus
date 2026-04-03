@@ -1,34 +1,161 @@
-<link rel="stylesheet" type="text/css" href="/extension/css/styles.css">
+<!DOCTYPE html>
+<html>
 
-<div id="sectionEnableWatch">
-  <div class="modal-title">Enable Watchpoints</div>
-    <select id="selectEnableWatchpoints">
-      <option value=3>All</option>
-      <option value=1>Read Only</option>
-      <option value=2>Write/Freeze Only</option>
-      <option value=0>None</option>
-    </select>
+<head>
+  <title>Cetus Options</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" type="text/css" href="/extension/css/normalize.css">
+  <link rel="stylesheet" type="text/css" href="/extension/css/styles.css">
+  <style>
+    body {
+      background: var(--background);
+      color: var(--text);
+      padding: 24px;
+      min-width: 320px;
+      max-width: 460px;
+    }
+
+    .options-section {
+      margin-bottom: 20px;
+    }
+
+    .options-section .modal-title {
+      font-size: 14px;
+      color: var(--label);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .select-wrap {
+      position: relative;
+    }
+
+    .select-wrap::after {
+      content: '';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid #A4B0BE;
+      pointer-events: none;
+    }
+
+    .options-section select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--lightBackground);
+      color: var(--text);
+      border: 1px solid var(--inputBorder);
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: 'Proxima Nova', sans-serif;
+      cursor: pointer;
+      padding-right: 32px;
+    }
+
+    .options-section select:focus {
+      border-color: var(--brand);
+      outline: none;
+    }
+
+    .options-section input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--inputBorder);
+      border-radius: 2px;
+      outline: none;
+      margin-top: 8px;
+    }
+
+    .options-section input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--brand);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .range-row input[type="range"] {
+      flex: 1;
+    }
+
+    .range-row output {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 20px;
+      text-align: center;
+    }
+
+    .save-section {
+      margin-top: 28px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="options-section">
+    <div class="modal-title">Enable Watchpoints</div>
+    <div class="select-wrap">
+      <select id="selectEnableWatchpoints">
+        <option value=3>All</option>
+        <option value=1>Read Only</option>
+        <option value=2>Write/Freeze Only</option>
+        <option value=0>None</option>
+      </select>
+    </div>
   </div>
-</div>
 
-<div id="sectionLogLevel">
-  <div class="modal-title">Log Level</div>
-    <select id="selectLogLevel">
-      <option value=0>None</option>
-      <option value=1>Debug</option>
-      <option value=2>Trace</option>
-    </select>
+  <div class="options-section">
+    <div class="modal-title">Log Level</div>
+    <div class="select-wrap">
+      <select id="selectLogLevel">
+        <option value=0>None</option>
+        <option value=1>Debug</option>
+        <option value=2>Trace</option>
+      </select>
+    </div>
   </div>
-</div>
 
-<div id="sectionWPCount">
-  <div class="modal-title">Max Watchpoints</div>
-    <input type="range" id="rangeWPCount" min="1" max="9" value="5"><output id="outputWPCount">3</div>
+  <div class="options-section">
+    <div class="modal-title">Max Watchpoints</div>
+    <div class="range-row">
+      <input type="range" id="rangeWPCount" min="1" max="9" value="3">
+      <output id="outputWPCount">3</output>
+    </div>
   </div>
-<div>
 
-<div id="sectionSave">
-  <button class="input button" id="buttonSaveOptions">Save</button>
-</div>
-<script src="/shared/contentutils.js"></script>
-<script src="/extension/optionspage.js"></script>
+  <div class="options-section">
+    <div class="modal-title">Passthrough Mode</div>
+    <label class="toggle">
+      <input type="checkbox" id="checkPassthrough">
+      <span class="toggle-switch"></span>
+      <span class="toggle-label">Skip all instrumentation (diagnostic)</span>
+    </label>
+  </div>
+
+  <div class="save-section">
+    <button class="button" id="buttonSaveOptions">Save</button>
+  </div>
+
+  <script src="/shared/contentutils.js"></script>
+  <script src="/extension/optionspage.js"></script>
+</body>
+
+</html>
