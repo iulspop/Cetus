@@ -306,8 +306,8 @@ class WindowInstance {
         this.instances = [];
         this.instanceId = null;
 
-        // We do not need a separate popupChannel for each instance because they all connect to the same popup window
-        this._popupChannel = null;
+        // Multiple popup/devtools panels can be open simultaneously
+        this._popupChannels = [];
 
         this.searchMemType = null;
 
@@ -317,18 +317,17 @@ class WindowInstance {
     }
 
     attachPopupChannel(channel) {
-        if (this._popupChannel !== null) {
-            return;
-        }
-
         const targetWindow = this;
 
-        this._popupChannel = channel;
-        this._popupChannel.onMessage.addListener(function(msg, msgSource) {
+        this._popupChannels.push(channel);
+        channel.onMessage.addListener(function(msg, msgSource) {
             return targetWindow._popupMessageListener(msg, msgSource);
         });
-        this._popupChannel.onDisconnect.addListener(function() {
-            targetWindow._popupChannel = null;
+        channel.onDisconnect.addListener(function() {
+            const idx = targetWindow._popupChannels.indexOf(channel);
+            if (idx !== -1) {
+                targetWindow._popupChannels.splice(idx, 1);
+            }
         });
     }
 
@@ -561,7 +560,7 @@ class WindowInstance {
             return;
         }
 
-        if (this._popupChannel !== null) {
+        if (this._popupChannels.length > 0) {
             const msg = {
                 type: type,
                 id: instanceId
@@ -575,7 +574,9 @@ class WindowInstance {
             try {
                 const msgStr = bigintJsonStringify(msg);
 
-                this._popupChannel.postMessage(msgStr);
+                for (const channel of this._popupChannels) {
+                    channel.postMessage(msgStr);
+                }
             }
             catch (err) {
                 return;
@@ -584,13 +585,15 @@ class WindowInstance {
     }
 
     passthruPopupMessage(msg) {
-        if (this._popupChannel !== null) {
+        if (this._popupChannels.length > 0) {
             const msgStr = bigintJsonStringify(msg);
 
-            this._popupChannel.postMessage(msgStr);
+            for (const channel of this._popupChannels) {
+                channel.postMessage(msgStr);
+            }
         }
         else {
-            throw new Error("this._popupChannel closed prematurely");
+            throw new Error("popupChannels closed prematurely");
         }
     }
 
@@ -672,11 +675,11 @@ class BackgroundExtension {
         const newWindow = new WindowInstance();
         this.windows[windowId] = newWindow;
 
-        // Claim pending popup/devtools channel if one was stored before this window existed
-        if (_pendingPopupChannel !== null) {
-            newWindow.attachPopupChannel(_pendingPopupChannel);
-            _pendingPopupChannel = null;
+        // Claim pending popup/devtools channels stored before this window existed
+        for (const channel of _pendingPopupChannels) {
+            newWindow.attachPopupChannel(channel);
         }
+        _pendingPopupChannels = [];
 
         return newWindow;
     }
@@ -692,24 +695,23 @@ class BackgroundExtension {
 
 const bgExtension = new BackgroundExtension();
 
-// Pending popup/devtools channel stored until a WindowInstance claims it
-let _pendingPopupChannel = null;
+// Pending popup/devtools channels stored until a WindowInstance claims them
+let _pendingPopupChannels = [];
 
 chrome.runtime.onConnect.addListener(function(channel) {
     // Try to attach to an existing WindowInstance
     for (let key in bgExtension.windows) {
         const win = bgExtension.windows[key];
-        if (win._popupChannel === null) {
-            win.attachPopupChannel(channel);
-            return;
-        }
+        win.attachPopupChannel(channel);
+        return;
     }
 
     // No WindowInstance yet — store for later
-    _pendingPopupChannel = channel;
+    _pendingPopupChannels.push(channel);
     channel.onDisconnect.addListener(function() {
-        if (_pendingPopupChannel === channel) {
-            _pendingPopupChannel = null;
+        const idx = _pendingPopupChannels.indexOf(channel);
+        if (idx !== -1) {
+            _pendingPopupChannels.splice(idx, 1);
         }
     });
 });
