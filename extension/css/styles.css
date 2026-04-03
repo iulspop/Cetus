@@ -540,46 +540,13 @@ table tbody td {
 	margin-right: 7px;
 }
 
-.speedometer {
-	margin: 0px 0 16px;
-	position: relative;
-	display: flex;
-	flex-flow: column nowrap;
-	justify-content: center;
-	align-items: center;
-}
-
 .speedometer-current {
-	position: absolute;
-	top: calc(35% + 48px);
-	left: calc(52%);
-	transform: translate(-50%, -50%);
-	max-width: 122px;
 	text-align: center;
-	margin-left: -8px;
-	width: 100%;
 	font-weight: bold;
-	line-height: 104px;
 	font-size: 72px;
+	line-height: 1;
 	color: var(--textGray);
-}
-
-.speedometer svg .paint {
-	fill: var(--grayInactive);
-	transition: fill 0.2s ease;
-	will-change: fill;
-}
-
-.speedometer svg .paint-bold {
-	transition: fill 0.2s ease;
-	will-change: fill;
-}
-
-.speedometer-arrow {
-	transform: translate(0px, -157px) rotate(-67.8deg);
-	transform-origin: 50% 100px;
-	transition: transform 0.2s ease;
-	will-change: transform;
+	margin: 16px 0;
 }
 
 @media (max-width: 440px) {

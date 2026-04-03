@@ -1305,34 +1305,15 @@ const updateSpeedhackGauge = function() {
     const val = +range.value;
     const min = +range.min;
     const max = +range.max;
-    // Normalized 0-1 position within slider range
     const pct = (val - min) / (max - min);
-
-    const valText = document.getElementById('shValue');
-    const arrow = document.getElementById('arrow');
-    // Arrow rotation: -110deg (min) to +110deg (max)
-    const arrowDeg = -110 + pct * 220;
-    arrow.style.transform = 'translate(0px, -157px) rotate(' + arrowDeg + 'deg)';
-
-    const stripes = document.getElementsByClassName('paint');
-    const boldStripes = document.getElementsByClassName('paint-bold');
 
     const round = document.getElementById('slider-round');
     const fillLine = document.getElementById('slider-item-fill');
-    // Match native range input: thumb center goes from 12px to (width - 12px)
     round.style.left = `calc(${pct * 100}% + ${12 - pct * 24}px)`;
     round.style.transform = `translate(-50%, -50%)`;
     fillLine.style.transform = `translateX(${-100 + pct * 100}%)`;
 
-    for (let i = 0; i < stripes.length; i++) {
-        stripes[i].style.fill = (i / stripes.length) <= pct ? '#5352ED' : '#2A303E';
-    }
-
-    for (let i = 0; i < boldStripes.length; i++) {
-        boldStripes[i].style.fill = (i / boldStripes.length) <= pct ? '#5352ED' : '#2A303E';
-    }
-
-    // Show fractional values nicely (e.g., "2x", "1.5x")
+    const valText = document.getElementById('shValue');
     valText.innerText = (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)) + 'x';
 };
 
