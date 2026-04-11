@@ -18,10 +18,10 @@ const MAX_STACKTRACES = 10;
 
 class PopupExtension {
     constructor() {
-        this._bgChannel = chrome.runtime.connect({ name: "Cetus Background Page"});
-
-        this._bgChannel.onMessage.addListener(bgMessageListener);
-        this.sendBGMessage("popupConnected");
+        this._bgChannel = null;
+        this._isConnecting = false;
+        this._hasLiveInstance = false;
+        this._isConnected = false;
 
         this._patches = [];
         this._loadPatchesFromStorage();
@@ -36,6 +36,105 @@ class PopupExtension {
         loadOptions(function(savedOptions) {
             _this.options = savedOptions;
         });
+
+        this.connectToBackground();
+    }
+
+    connectToBackground(force = false) {
+        if (this._isConnecting) {
+            return;
+        }
+
+        if (this._bgChannel !== null && !force) {
+            return;
+        }
+
+        if (this._bgChannel !== null) {
+            try {
+                this._bgChannel.disconnect();
+            }
+            catch (err) {}
+            this._bgChannel = null;
+        }
+
+        this._isConnecting = true;
+        this.setConnectionState(false, this._hasLiveInstance);
+
+        try {
+            const channel = chrome.runtime.connect({ name: "Cetus Background Page"});
+            this._bgChannel = channel;
+
+            channel.onMessage.addListener(bgMessageListener);
+            channel.onDisconnect.addListener(() => {
+                if (this._bgChannel === channel) {
+                    this._bgChannel = null;
+                }
+
+                this._isConnecting = false;
+                this.setConnectionState(false, this._hasLiveInstance);
+            });
+
+            this._isConnecting = false;
+            this.setConnectionState(true, this._hasLiveInstance);
+            this.sendBGMessage("popupConnected");
+        }
+        catch (err) {
+            this._bgChannel = null;
+            this._isConnecting = false;
+            this.setConnectionState(false, this._hasLiveInstance);
+        }
+    }
+
+    reconnect() {
+        this.connectToBackground(true);
+
+        if (this._bgChannel !== null) {
+            this.sendBGMessage("popupReconnect");
+        }
+    }
+
+    setConnectionState(isConnected, hasLiveInstance = this._hasLiveInstance) {
+        this._isConnected = isConnected;
+        this._hasLiveInstance = hasLiveInstance;
+
+        const connected = isConnected && hasLiveInstance;
+        const statusText = connected ? "Connected" : (isConnected ? "Waiting for WASM" : "Disconnected");
+        const overlayText = connected ? "Connected to WASM" : (isConnected ? "Waiting for WASM" : "Disconnected from background");
+
+        const statusEls = [
+            document.getElementById("connectionStatusBar")
+        ];
+        const textEls = [
+            document.getElementById("connectionStatusBarText")
+        ];
+
+        for (const el of statusEls) {
+            if (el !== null) {
+                el.setAttribute("data-connected", connected ? "true" : "false");
+            }
+        }
+
+        for (const el of textEls) {
+            if (el !== null) {
+                el.innerText = statusText;
+            }
+        }
+
+        const overlayStatusText = document.getElementById("overlayStatusText");
+        if (overlayStatusText !== null) {
+            overlayStatusText.innerText = overlayText;
+        }
+
+        const reconnectButtons = [
+            document.getElementById("reconnectButtonBar")
+        ];
+
+        for (const button of reconnectButtons) {
+            if (button !== null) {
+                button.disabled = this._isConnecting;
+                button.innerText = this._isConnecting ? "Reconnecting..." : "Reconnect";
+            }
+        }
     }
 
     sendBGMessage(type, msgBody) {
@@ -48,13 +147,18 @@ class PopupExtension {
                 msg.body = msgBody;
             }
 
-            // TODO Actually handle port closed error
             try {
                 this._bgChannel.postMessage(msg);
+                this.setConnectionState(true, this._hasLiveInstance);
             }
             catch (err) {
+                this._bgChannel = null;
+                this.setConnectionState(false, this._hasLiveInstance);
                 return;
             }
+        }
+        else {
+            this.setConnectionState(false, this._hasLiveInstance);
         }
     }
 
@@ -67,6 +171,7 @@ class PopupExtension {
     }
 
     reset() {
+        this.setConnectionState(this._isConnected, false);
         updateBookmarkTable({}, this.options.enableWatchpoints);
 
         document.getElementById("restartBtn").click();            
@@ -310,16 +415,19 @@ const bgMessageListener = function(msgRaw) {
 
     switch (type) {
         case "init":
+            extension.setConnectionState(true, true);
+
             if (!extension.unlocked) {
                 extension.unlock();
 
                 extension.url = msgBody.url;
                 extension.symbols = msgBody.symbols;
 
-                updateInstances({
+                updateInstances([{
                     url: msgBody.url,
                     id: instanceId,
-                });
+                    selected: true,
+                }]);
             }
             else {
                 addNewInstanceSelector(msgBody.url, instanceId);
@@ -332,8 +440,10 @@ const bgMessageListener = function(msgRaw) {
             }
 
             const instanceData = msgBody.instanceData;
+            const hasLiveInstance = typeof instanceData === "object";
+            extension.setConnectionState(true, hasLiveInstance);
 
-            if (typeof instanceData === "object") {
+            if (hasLiveInstance) {
                 extension.url = instanceData.url;
                 extension.symbols = instanceData.symbols;
                 extension.searchMemType = instanceData.searchForm.valueType;
@@ -345,7 +455,7 @@ const bgMessageListener = function(msgRaw) {
                 updateBookmarkTable(instanceData.bookmarks, extension.options.enableWatchpoints);
             }
 
-            updateInstances(msgBody.instances);
+            updateInstances(msgBody.instances || []);
 
             break;
         case "searchProgress":
@@ -437,6 +547,10 @@ const bgMessageListener = function(msgRaw) {
             break;
         case "reset":
             extension.reset();
+
+            break;
+        case "connectionStatus":
+            extension.setConnectionState(!!msgBody.connected, !!msgBody.hasInstance);
 
             break;
     }

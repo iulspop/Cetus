@@ -65,12 +65,21 @@
   </div>
   <div id="lockOverlay" class="overlay">
     <div class="overlay-container">
-      <div>Waiting for WASM</div>
+      <div id="overlayStatusText">Waiting for WASM</div>
       <div class="openSavePatchModalButton" id="overlayLoadPatchModalButton">Show Patches</div>
     </div>
   </div>
   <div id="divInstances" class="select">
-    <select id="selectInstances"></select>
+    <div class="select-bar">
+      <select id="selectInstances"></select>
+      <div class="connection-controls">
+        <div class="connection-status" id="connectionStatusBar" data-connected="false">
+          <span class="connection-status-light"></span>
+          <span class="connection-status-text" id="connectionStatusBarText">Disconnected</span>
+        </div>
+        <button class="button button--small button--inline" id="reconnectButtonBar">Reconnect</button>
+      </div>
+    </div>
   </div>
   <div class="tabs">
     <div class="tabs-item is-active" id="liTabSearch">

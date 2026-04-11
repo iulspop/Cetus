@@ -329,6 +329,8 @@ class WindowInstance {
                 targetWindow._popupChannels.splice(idx, 1);
             }
         });
+
+        this.broadcastConnectionStatus();
     }
 
     // This listener receives messages sent from the popup or devtools UI
@@ -344,6 +346,10 @@ class WindowInstance {
         switch (msgType) {
             case "popupConnected":
                 targetWindow.popupRestore();
+
+                    break;
+                case "popupReconnect":
+                    targetWindow.popupRestore();
 
                     break;
                 case "instanceChange": {
@@ -566,6 +572,14 @@ class WindowInstance {
         // Always send popupRestore, even if no instance exists yet.
         // This unlocks the popup UI so it's ready when WASM loads.
         this.broadcastPopupMessage("popupRestore", popupData);
+        this.broadcastConnectionStatus();
+    }
+
+    broadcastConnectionStatus() {
+        this.broadcastPopupMessage("connectionStatus", {
+            connected: this._popupChannels.length > 0,
+            hasInstance: this.currentInstance() !== null,
+        });
     }
 
     sendPopupMessage(instanceId, type, msgBody) {
@@ -727,12 +741,22 @@ chrome.runtime.onConnect.addListener(function(channel) {
     // No WindowInstance yet — unlock popup immediately with empty state,
     // then store channel for later so it receives future messages
     try {
-        const msg = bigintJsonStringify({
+        const restoreMsg = bigintJsonStringify({
             type: "popupRestore",
             id: null,
             body: { instances: [] }
         });
-        channel.postMessage(msg);
+        channel.postMessage(restoreMsg);
+
+        const statusMsg = bigintJsonStringify({
+            type: "connectionStatus",
+            id: null,
+            body: {
+                connected: true,
+                hasInstance: false,
+            }
+        });
+        channel.postMessage(statusMsg);
     }
     catch (err) {}
 
@@ -1005,6 +1029,7 @@ chrome.runtime.onMessage.addListener(function(msgRaw, msgSender) {
             targetWindow.removeInstance(targetInstance);
 
             targetWindow.sendPopupMessage(msgSrcInstance, "instanceQuit");
+            targetWindow.broadcastConnectionStatus();
 
             break;
     }

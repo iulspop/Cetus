@@ -131,9 +131,6 @@ html {
 }
 
 .toggleColorScheme {
-	position: absolute;
-	right: 14px;
-	top: 11px;
 	cursor: pointer;
 	width: 24px;
 	height: 24px;
@@ -163,13 +160,26 @@ html {
 
 .select {
 	position: fixed;
-	z-index: 5;
+	z-index: 6;
 	top: 0;
 	left: 0;
 	width: 100%;
 	background: var(--lightBackground);
 	padding: 0 16px;
     outline: none;
+	border-bottom: 1px solid var(--inputBorder);
+}
+
+.select-bar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 44px;
+}
+
+.select-bar select {
+	flex: 1;
+	min-width: 0;
 }
 
 .select select {
@@ -179,22 +189,79 @@ html {
     text-decoration: none;
 }
 
+.connection-controls {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-left: auto;
+	padding-right: 40px;
+	flex-shrink: 0;
+}
+
+.connection-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	color: var(--textGray);
+	white-space: nowrap;
+}
+
+.connection-status-light {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #ff4757;
+	box-shadow: 0 0 0 2px rgba(255, 71, 87, 0.15);
+}
+
+.connection-status[data-connected="true"] .connection-status-light {
+	background: #2ed573;
+	box-shadow: 0 0 0 2px rgba(46, 213, 115, 0.15);
+}
+
+.connection-status[data-connected="true"] .connection-status-text {
+	color: var(--text);
+}
+
+.button--small {
+	width: auto;
+	min-width: 92px;
+	padding: 6px 10px;
+	font-size: 12px;
+	line-height: 16px;
+	margin-top: 0;
+}
+
+.button--inline {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.button[disabled] {
+	opacity: 0.55;
+	cursor: default;
+}
+
 .tabs {
 	position: fixed;
 	z-index: 5;
-	top: 10;
+	top: 44px;
 	left: 0;
 	width: 100%;
 	background: var(--lightBackground);
 	display: flex;
 	flex-flow: row nowrap;
+	align-items: center;
 	padding: 0 16px;
+	border-bottom: 1px solid var(--inputBorder);
 }
 
 .tabs-content {
-	padding-top: 60px;
+	padding-top: 104px;
 	height: 100%;
-	overflow-y: scroll;
+	overflow-y: auto;
 	-ms-overflow-style: none;
 	scrollbar-width: none;
 }
@@ -215,6 +282,7 @@ html {
 	border-bottom: 2px transparent solid;
 	transition: border-bottom 0.2s ease;
 	will-change: border-bottom;
+	flex-shrink: 0;
 }
 
 .tabs-item a {

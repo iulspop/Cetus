@@ -906,18 +906,26 @@ const updateInstances = function(allInstances) {
     const instanceSelector = document.getElementById("selectInstances");
     instanceSelector.innerHTML = "";
 
+    const instances = Array.isArray(allInstances) ? allInstances : [];
+
     // Only show the instance selector if there's more than one instance to select
-    if (allInstances.length > 1) {
+    if (instances.length > 1) {
         instanceSelector.style.visibility = "visible";
 
-        for (let i = 0; i < allInstances.length; i++) {
-            const thisInstance = allInstances[i];
+        for (let i = 0; i < instances.length; i++) {
+            const thisInstance = instances[i];
 
             addNewInstanceSelector(thisInstance.url, thisInstance.id, thisInstance.selected);
         }
     }
     else {
         instanceSelector.style.visibility = "hidden";
+
+        if (instances.length === 1) {
+            const thisInstance = instances[0];
+            addNewInstanceSelector(thisInstance.url, thisInstance.id, thisInstance.selected);
+            instanceSelector.value = thisInstance.id;
+        }
     }
 }
 
@@ -1395,3 +1403,8 @@ document.getElementById("selectInstances").onchange = function(e) {
         id: e.target.value
     });
 }
+
+document.getElementById("reconnectButtonBar").onclick = function(e) {
+    e.preventDefault();
+    extension.reconnect();
+};
