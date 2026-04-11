@@ -165,7 +165,7 @@ html {
 	left: 0;
 	width: 100%;
 	background: var(--lightBackground);
-	padding: 0 16px;
+	padding: 6px 16px;
     outline: none;
 	border-bottom: 1px solid var(--inputBorder);
 }
@@ -174,7 +174,7 @@ html {
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	min-height: 44px;
+	min-height: 32px;
 }
 
 .select-bar select {
@@ -192,9 +192,9 @@ html {
 .connection-controls {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 	margin-left: auto;
-	padding-right: 40px;
+	padding-right: 0;
 	flex-shrink: 0;
 }
 
@@ -225,12 +225,7 @@ html {
 }
 
 .button--small {
-	width: auto;
-	min-width: 92px;
-	padding: 6px 10px;
-	font-size: 12px;
-	line-height: 16px;
-	margin-top: 0;
+	border-radius: 8px;
 }
 
 .button--inline {
@@ -259,7 +254,7 @@ html {
 }
 
 .tabs-content {
-	padding-top: 104px;
+	padding-top: 100px;
 	height: 100%;
 	overflow-y: auto;
 	-ms-overflow-style: none;
@@ -271,7 +266,7 @@ html {
 }
 
 .tabs-item {
-	padding: 14px 0 10px;
+	padding: 12px 0 8px;
 	margin-right: 24px;
 	font-weight: 600;
 	font-size: 14px;
@@ -498,6 +493,18 @@ html {
 	line-height: 23px;
 	font-size: 16px;
 	cursor: pointer;
+}
+
+#reconnectButtonBar {
+	width: auto;
+	flex: 0 0 auto;
+	min-width: 0;
+	margin-top: 0;
+	padding: 6px 10px;
+	border-radius: 8px;
+	font-size: 12px;
+	line-height: 14px;
+	font-weight: 600;
 }
 
 .button--text {
