@@ -123,42 +123,42 @@
                 <input type="radio" name="compare" value="eq" class="radio-input" checked>
                 <div class="radio-body">
                   <span></span>
-                  EQ
+                  Equal
                 </div>
               </div>
               <div class="radio">
                 <input type="radio" name="compare" value="ne" class="radio-input">
                 <div class="radio-body">
                   <span></span>
-                  NE
+                  Not Equal
                 </div>
               </div>
               <div class="radio">
                 <input type="radio" name="compare" value="lt" class="radio-input">
                 <div class="radio-body">
                   <span></span>
-                  LT
+                  Less Than
                 </div>
               </div>
               <div class="radio">
                 <input type="radio" name="compare" value="gt" class="radio-input">
                 <div class="radio-body">
                   <span></span>
-                  GT
+                  Greater Than
                 </div>
               </div>
               <div class="radio">
                 <input type="radio" name="compare" value="lte" class="radio-input">
                 <div class="radio-body">
                   <span></span>
-                  LTE
+                  Less Than or Equal
                 </div>
               </div>
               <div class="radio">
                 <input type="radio" name="compare" value="gte" class="radio-input">
                 <div class="radio-body">
                   <span></span>
-                  GTE
+                  Greater Than or Equal
                 </div>
               </div>
             </div>
@@ -280,7 +280,10 @@
       <div class="container">
         <div class="restart-container">
           <div id="resultsTitle" class="results-count"></div>
-          <button id="restartBtn" class="results-clear" disabled>Restart Search</button>
+          <div class="results-actions">
+            <button id="cancelBtn" class="results-clear" disabled>Cancel Scan</button>
+            <button id="restartBtn" class="results-clear" disabled>Restart Search</button>
+          </div>
         </div>
       </div>
       <div class="results" id="results"></div>

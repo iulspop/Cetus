@@ -471,6 +471,7 @@ const bgMessageListener = function(msgRaw) {
             }
 
             updateSearchResults(resultCount, resultObject, resultMemType);
+            extension.setConnectionState(true, true);
 
             break;
         case "updateBookmarks":

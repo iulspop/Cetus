@@ -19,21 +19,13 @@ importScripts("/shared/utils.js");
 const MAX_WATCHPOINTS = 10;
 
 class WASMInstance {
-    constructor(instanceId, url, parentWindow) {
+    constructor(instanceId, url, parentWindow, contentTab = null) {
         // The saved instance ID should only be used for actions triggered from the UI. Under other circumstances, it's possible
         // for the saved instance ID is in the middle of an action.
         this.instanceId = instanceId;
         this.url = url;
         this.parentWindow = parentWindow;
-
-        this.contentTab = null;
-
-        let _this = this;
-        chrome.tabs.query({ active: true }, function(tabs) {
-            // We do not query currentWindow because a detached dev tools panel may break
-            // this assumtion. See issue #16
-            _this.contentTab = tabs[0];
-        });
+        this.contentTab = contentTab;
 
         // This object is a serializable object containing all the data needed to be passed between the background page and the UI
         this.instanceData = {
@@ -349,6 +341,7 @@ class WindowInstance {
 
                     break;
                 case "popupReconnect":
+                    targetWindow.sendReconnectRequest();
                     targetWindow.popupRestore();
 
                     break;
@@ -406,11 +399,20 @@ class WindowInstance {
                     break;
                 case "restartSearch":
                     currentInstance.instanceData.searchForm.inProgress = false;
+                    targetWindow.pendingSearch = false;
 
                     currentInstance.instanceData.searchForm.results.count = 0;
                     currentInstance.instanceData.searchForm.results.object = {};
 
                     currentInstance.sendContentMessage("restartSearch");
+
+                    break;
+                case "cancelSearch":
+                    currentInstance.instanceData.searchForm.inProgress = false;
+                    targetWindow.pendingSearch = false;
+
+                    currentInstance.sendContentMessage("cancelSearch");
+                    targetWindow.popupRestore();
 
                     break;
                 case "addBookmark":
@@ -575,6 +577,12 @@ class WindowInstance {
         this.broadcastConnectionStatus();
     }
 
+    sendReconnectRequest() {
+        for (const instance of this.instances) {
+            instance.sendContentMessage("requestInit");
+        }
+    }
+
     broadcastConnectionStatus() {
         this.broadcastPopupMessage("connectionStatus", {
             connected: this._popupChannels.length > 0,
@@ -629,9 +637,11 @@ class WindowInstance {
         }
     }
 
-    addInstance(instanceId, pageUrl) {
-        if (this.getInstance(instanceId) !== null) {
-            return;
+    addInstance(instanceId, pageUrl, contentTab = null) {
+        const existingInstance = this.getInstance(instanceId);
+        if (existingInstance !== null) {
+            existingInstance.contentTab = contentTab;
+            return existingInstance;
         }
 
         // Don't change the selected instance ID unless no ID is selected
@@ -639,7 +649,7 @@ class WindowInstance {
             this.instanceId = instanceId;
         }
 
-        const newInstance = new WASMInstance(instanceId, pageUrl, this);
+        const newInstance = new WASMInstance(instanceId, pageUrl, this, contentTab);
         this.instances.push(newInstance);
         return newInstance;
     }
@@ -805,6 +815,7 @@ chrome.runtime.onMessage.addListener(function(msgRaw, msgSender) {
         case "init":
             const pageUrl = msgBody.url;
             const symbols = msgBody.symbols;
+            const contentTab = msgSender.tab || null;
 
             if (typeof pageUrl !== "string") {
                 return true;
@@ -818,7 +829,7 @@ chrome.runtime.onMessage.addListener(function(msgRaw, msgSender) {
                 targetWindow = bgExtension.addWindow(msgSrcWindow);
             }
 
-            const newInstance = targetWindow.addInstance(msgSrcInstance, pageUrl);
+            const newInstance = targetWindow.addInstance(msgSrcInstance, pageUrl, contentTab);
 
             newInstance.instanceData.initialized = true;
             newInstance.instanceData.url = pageUrl;
@@ -888,6 +899,7 @@ chrome.runtime.onMessage.addListener(function(msgRaw, msgSender) {
 
             targetInstance.instanceData.searchForm.results.count = resultCount;
             targetInstance.instanceData.searchForm.results.object = resultObject;
+            targetInstance.instanceData.searchForm.inProgress = false;
 
             targetInstance.instanceData.searchForm.valueType = resultMemType;
 

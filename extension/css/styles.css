@@ -519,6 +519,14 @@ html {
 	flex-flow: row nowrap;
 	justify-content: space-between;
 	align-items: center;
+	gap: 12px;
+}
+
+.results-actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-shrink: 0;
 }
 
 .results {

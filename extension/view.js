@@ -45,6 +45,7 @@ const clearSearchForm = function() {
     enableSearchFormAlignment();
 
     document.getElementById("restartBtn").disabled = true;
+    document.getElementById("cancelBtn").disabled = true;
 }
 
 document.getElementById('restartBtn').onclick = function(e) {
@@ -53,6 +54,19 @@ document.getElementById('restartBtn').onclick = function(e) {
 	extension.sendBGMessage('restartSearch');
 
     clearSearchForm();
+};
+
+ document.getElementById('cancelBtn').onclick = function(e) {
+	e.preventDefault();
+
+	extension.sendBGMessage('cancelSearch');
+
+    document.getElementById('resultsTitle').innerText = 'Search cancelled';
+    document.getElementById("cancelBtn").disabled = true;
+
+    enableSearchFormTypes();
+    enableSearchFormCompare();
+    enableSearchFormAlignment();
 };
 
 // TODO We need to disable the comparison and type fields when doing a string/byte sequence search
@@ -142,6 +156,7 @@ document.getElementById('searchForm').onsubmit = function(e) {
 	});
 
 	document.getElementById('resultsTitle').innerText = 'Searching...';
+    document.getElementById("cancelBtn").disabled = false;
 
     disableSearchFormTypes();
     disableSearchFormAlignment();
@@ -560,6 +575,18 @@ const updateSearchForm = function(searchData) {
 	}
 
     if (searchInProgress) {
+        if (resultCount > 0 || Object.keys(resultObject).length > 0) {
+            updateSearchResults(resultCount, resultObject, searchType);
+        }
+        else {
+            document.getElementById('resultsTitle').innerText = 'Searching...';
+            document.getElementById("cancelBtn").disabled = false;
+        }
+
+        disableSearchFormTypes();
+        disableSearchFormAlignment();
+    }
+    else if (resultCount > 0 || Object.keys(resultObject).length > 0) {
         updateSearchResults(resultCount, resultObject, searchType);
     }
     else {
@@ -639,11 +666,13 @@ const disableSearchFormAlignment = function() {
 
 const updateSearchProgress = function(progress) {
 	document.getElementById('resultsTitle').innerText = 'Searching... ' + progress + '%';
+    document.getElementById("cancelBtn").disabled = false;
 };
 
 const updateSearchResults = function(resultCount, resultObject, resultMemType) {
 	document.getElementById('resultsTitle').innerText = resultCount + ' results';
 	document.getElementById('restartBtn').disabled = false;
+    document.getElementById('cancelBtn').disabled = true;
 
 	const table = document.createElement('table');
 	const thead = table.createTHead();

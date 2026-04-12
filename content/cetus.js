@@ -118,6 +118,7 @@ class Cetus {
 
         this._searchSubset = {};
         this._savedMemory  = null;
+        this._searchAbortController = null;
 
         if (cetusInstances.logLevel >= LOG_LEVEL_DEBUG) {
             colorLog("constructor: Cetus initialized");
@@ -238,6 +239,7 @@ class Cetus {
     }
 
     restartSearch() {
+        this.cancelSearch();
         this._searchSubset = {};
         this._savedMemory = null;
 
@@ -246,7 +248,29 @@ class Cetus {
         }
     }
 
-    async _compare(comparator, memType, memAligned, lowerBound, upperBound) {
+    cancelSearch() {
+        if (this._searchAbortController !== null) {
+            this._searchAbortController.aborted = true;
+            this._searchAbortController = null;
+
+            if (cetusInstances.logLevel >= LOG_LEVEL_DEBUG) {
+                colorLog("cancelSearch: Search cancelled");
+            }
+        }
+    }
+
+    _beginSearch() {
+        this.cancelSearch();
+        this._searchAbortController = { aborted: false };
+
+        return this._searchAbortController;
+    }
+
+    _isSearchCancelled(controller) {
+        return controller === null || controller.aborted === true || this._searchAbortController !== controller;
+    }
+
+    async _compare(comparator, memType, memAligned, lowerBound, upperBound, abortController) {
         const searchKeys = Object.keys(this._searchSubset);
 
         if (searchKeys.length == 0) {
@@ -265,6 +289,10 @@ class Cetus {
 
                     const now = Date.now();
                     if (now - lastProgressTime >= 500) {
+                        if (this._isSearchCancelled(abortController)) {
+                            return null;
+                        }
+
                         lastProgressTime = now;
                         const progress = Math.round(((i - lowerBound) / totalRange) * 100);
                         this.sendExtensionMessage("searchProgress", { progress });
@@ -282,6 +310,10 @@ class Cetus {
 
                     const now = Date.now();
                     if (now - lastProgressTime >= 500) {
+                        if (this._isSearchCancelled(abortController)) {
+                            return null;
+                        }
+
                         lastProgressTime = now;
                         const progress = Math.round(((i - lowerBound) / totalRange) * 100);
                         this.sendExtensionMessage("searchProgress", { progress });
@@ -319,6 +351,10 @@ class Cetus {
                 processed++;
                 const now = Date.now();
                 if (now - lastProgressTime >= 500) {
+                    if (this._isSearchCancelled(abortController)) {
+                        return null;
+                    }
+
                     lastProgressTime = now;
                     const progress = Math.round((processed / totalKeys) * 100);
                     this.sendExtensionMessage("searchProgress", { progress });
@@ -344,7 +380,7 @@ class Cetus {
     }
 
     // TODO Should support unaligned searching
-    async _diffCompare(comparator, memType, lowerBoundIndex, upperBoundIndex) {
+    async _diffCompare(comparator, memType, lowerBoundIndex, upperBoundIndex, abortController) {
         const memory = this.alignedMemory(memType);
 
         if (Object.keys(this._searchSubset).length == 0) {
@@ -359,6 +395,10 @@ class Cetus {
 
                 const now = Date.now();
                 if (now - lastProgressTime >= 500) {
+                    if (this._isSearchCancelled(abortController)) {
+                        return null;
+                    }
+
                     lastProgressTime = now;
                     const progress = Math.round(((i - lowerBoundIndex) / totalRange) * 100);
                     this.sendExtensionMessage("searchProgress", { progress });
@@ -386,6 +426,10 @@ class Cetus {
                 processed++;
                 const now = Date.now();
                 if (now - lastProgressTime >= 500) {
+                    if (this._isSearchCancelled(abortController)) {
+                        return null;
+                    }
+
                     lastProgressTime = now;
                     const progress = Math.round((processed / totalKeys) * 100);
                     this.sendExtensionMessage("searchProgress", { progress });
@@ -413,6 +457,8 @@ class Cetus {
     }
 
     async search(searchComparison, searchMemType, searchMemAlign, searchParam = null, lowerBound = 0, upperBound = 0xFFFFFFFF) {
+        const abortController = this._beginSearch();
+
         this.createSearchMemory(searchMemType, searchMemAlign);
 
         const memSize = this.getMemorySize();
@@ -506,7 +552,8 @@ class Cetus {
                 searchResults = await this._diffCompare(comparator,
                                                   searchMemType,
                                                   realLowerBoundIndex,
-                                                  realUpperBoundIndex);
+                                                  realUpperBoundIndex,
+                                                  abortController);
             }
         }
         else {
@@ -514,7 +561,16 @@ class Cetus {
                                           searchMemType,
                                           searchMemAlign,
                                           lowerBoundAddr,
-                                          upperBoundAddr);
+                                          upperBoundAddr,
+                                          abortController);
+        }
+
+        if (this._isSearchCancelled(abortController)) {
+            return null;
+        }
+
+        if (this._searchAbortController === abortController) {
+            this._searchAbortController = null;
         }
 
         if (cetusInstances.logLevel >= LOG_LEVEL_DEBUG) {
@@ -992,8 +1048,19 @@ window.addEventListener("cetusMsgOut", function(msgRaw) {
             });
 
             break;
+        case "requestInit":
+            cetus.sendExtensionMessage("init", {
+                url: (window.location.host + window.location.pathname),
+                symbols: cetus._symbols
+            });
+
+            break;
         case "restartSearch":
             cetus.restartSearch();
+
+            break;
+        case "cancelSearch":
+            cetus.cancelSearch();
 
             break;
         case "search":
@@ -1019,6 +1086,10 @@ window.addEventListener("cetusMsgOut", function(msgRaw) {
                                                 searchParam,
                                                 searchLower,
                                                 searchUpper);
+                }
+
+                if (searchReturn === null) {
+                    return;
                 }
 
                 searchResultsCount = searchReturn.count;
