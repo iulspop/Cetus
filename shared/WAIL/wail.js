@@ -35,12 +35,14 @@ const KIND_FUNC              = 0x00;
 const KIND_TABLE             = 0x01;
 const KIND_MEMORY            = 0x02;
 const KIND_GLOBAL            = 0x03;
+const KIND_TAG               = 0x04;
 
 const kindStr = {
     "func": KIND_FUNC,
     "table": KIND_TABLE,
     "memory": KIND_MEMORY,
-    "global": KIND_GLOBAL
+    "global": KIND_GLOBAL,
+    "tag": KIND_TAG
 };
 
 const convertKind = function(string) {
@@ -2434,6 +2436,10 @@ class WailParser extends BufferReader {
                 this._importGlobalCount++;
                 reader.readUint8();
                 reader.readUint8();
+            }
+            else if (kind == KIND_TAG) {
+                reader.readUint8();
+                reader.readVarUint32();
             }
             else {
                 throw "Invalid type kind: " + kind;
